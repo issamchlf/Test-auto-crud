@@ -3,50 +3,63 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\UserRequest;
-use App\Http\Resources\UserResource;
-use App\Models\User;
+use App\Data\UserData;
+use App\Services\UserService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class UserController extends Controller
 {
-    public function index(): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+    /**
+     * @var UserService
+     */
+    protected UserService $userService;
+
+    /**
+     * DummyModel Constructor
+     *
+     * @param UserService $userService
+     *
+     */
+    public function __construct(UserService $userService)
     {
-        return UserResource::collection(User::latest()->paginate(10));
+        $this->userService = $userService;
     }
 
-    public function store(UserRequest $request): UserResource|\Illuminate\Http\JsonResponse
+    public function index(): array|\Illuminate\Contracts\Pagination\CursorPaginator|\Illuminate\Contracts\Pagination\Paginator|\Illuminate\Pagination\AbstractCursorPaginator|\Illuminate\Pagination\AbstractPaginator|\Illuminate\Support\Collection|\Illuminate\Support\Enumerable|\Illuminate\Support\LazyCollection|\Spatie\LaravelData\CursorPaginatedDataCollection|\Spatie\LaravelData\DataCollection|\Spatie\LaravelData\PaginatedDataCollection
+    {
+        return UserData::collect($this->userService->getAll());
+    }
+
+    public function store(UserData $data): UserData|\Illuminate\Http\JsonResponse
     {
         try {
-            $user = User::create($request->validated());
-            return new UserResource($user);
+            return UserData::from($this->userService->save($data->all()));
         } catch (\Exception $exception) {
             report($exception);
             return response()->json(['error' => 'There is an error.'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
-    public function show(User $user): UserResource
+    public function show(int $id): UserData
     {
-        return UserResource::make($user);
+        return UserData::from($this->userService->getById($id));
     }
 
-    public function update(UserRequest $request, User $user): UserResource|\Illuminate\Http\JsonResponse
+    public function update(UserData $data, int $id): UserData|\Illuminate\Http\JsonResponse
     {
         try {
-            $user->update($request->validated());
-            return new UserResource($user);
+            return UserData::from($this->userService->update($data->all(), $id));
         } catch (\Exception $exception) {
             report($exception);
             return response()->json(['error' => 'There is an error.'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
-    public function destroy(User $user): \Illuminate\Http\JsonResponse
+    public function destroy(int $id): \Illuminate\Http\JsonResponse
     {
         try {
-            $user->delete();
+            $this->userService->deleteById($id);
             return response()->json(['message' => 'Deleted successfully'], Response::HTTP_OK);
         } catch (\Exception $exception) {
             report($exception);
